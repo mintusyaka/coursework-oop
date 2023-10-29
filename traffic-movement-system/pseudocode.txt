@@ -1,0 +1,40 @@
+===============================================================================
+TIMER FOR TRAFFIC LIGHTS :
+-------------------------------------------------------------------------------
+chrono timer_frequency_main_road = *frequency main road input*
+chrono timer_frequency_turn_road = *frequency turn road input*
+chrono pause_between_signals = *pause time input*
+
+bool simulation = true //after start action
+bool yellow = false;
+
+chrono timer_start = current time;
+
+while(simulation) {
+	bool timer_cur = current time;
+
+	if(yellow) {
+		if(timer_cur - timer_start >= pause_between_signals) {
+			timer_start = timer_cur;
+
+			//change light on traffic lights
+		}
+	}
+	else {
+		if(timer_cur - timer_start >= timer_frequency_turn_road) {
+			
+
+			//change light on traffic lights 
+		}
+	}
+	
+
+	//cars movement logic accordingly to traffic lights
+}
+-------------------------------------------------------------------------------
+===============================================================================
+
+TRAFFIC LIGHT SYSTEM {
+
+
+}
