@@ -2,6 +2,8 @@
 #include <chrono>
 #include <array>
 #include <vector>
+#include <queue>
+
 
 #define MAP_SIZE								20
 #define ROAD_WIDTH								4
@@ -56,6 +58,9 @@
 #define CAR_POS									(m_RoadLines[roadline_idx][car_idx]->getPos())
 #define _CAR_OUT_OF_MAP_						(CAR_POS.second < 0 || CAR_POS.second > 19 || CAR_POS.first < 0 || CAR_POS.first > 19)
 #define CAR_TYPE								(m_RoadLines[roadline_idx][car_idx]->getType())
+#define _IS_TURN_(type)							(type == Turn)
+#define LAST_CAR_ON_THE_ROAD(roadline_idx)		m_RoadLines[roadline_idx][m_RoadLines[roadline_idx].size() - 1]
+#define CAR_IN_QUEUE							(m_CarQueue[roadline_idx].front())
 
 #define _RANDOM_GOAL_							(rand() % 10 / 4)
 #define _RANDOM_DIRECTION_						(rand() % 10 / 5)
@@ -523,46 +528,54 @@ public:
 
 	void addCar() {
 		int roadline_idx = _RANDOM_ROADLINE_;
+		int size = 1;
 		Car* car = nullptr;
 		if (_IS_HORIZONTAL_ROAD_) {
 			switch (_RANDOM_GOAL_){
 			case Forward:
-				car = new Car(1, m_Map, Forward, Main);
-				m_RoadLines[roadline_idx].push_back(car);
-				m_RoadLines[roadline_idx][m_RoadLines[roadline_idx].size() - 1]->setPos(0 + (MAP_SIZE - 1) * roadline_idx, 11 - (ROAD_WIDTH - 1) * roadline_idx);
+				createNewCar(car, size, Forward, roadline_idx, Main);
 				break;
 			case Right:
-				car = new Car(1, m_Map, Right, Main);
-				m_RoadLines[roadline_idx].push_back(car);
-				m_RoadLines[roadline_idx][m_RoadLines[roadline_idx].size() - 1]->setPos(0 + (MAP_SIZE - 1) * roadline_idx, 11 - (ROAD_WIDTH - 1) * roadline_idx);
+				createNewCar(car, size, Right, roadline_idx, Main);
 				break;
 			case Left:
-				car = new Car(1, m_Map, Left, Turn);
-				m_RoadLines[roadline_idx].push_back(car);
-				m_RoadLines[roadline_idx][m_RoadLines[roadline_idx].size() - 1]->setPos(0 + (MAP_SIZE - 1) * roadline_idx, 10 - (ROAD_WIDTH / 2 - 1) * roadline_idx);
+				createNewCar(car, size, Left, roadline_idx, Turn);
 				break;
 			}
 		}
 		else {
 			switch (_RANDOM_GOAL_) {
 			case Forward:
-				car = new Car(1, m_Map, Forward, Main);
-				m_RoadLines[roadline_idx].push_back(car);
-				m_RoadLines[roadline_idx][m_RoadLines[roadline_idx].size() - 1]->setPos(11 - (ROAD_WIDTH - 1) * roadline_idx, 19 - (MAP_SIZE - 1) * roadline_idx);
+				createNewCar(car, size, Forward, roadline_idx, Main);
 				break;
 			case Right:
-				car = new Car(1, m_Map, Right, Main);
-				m_RoadLines[roadline_idx].push_back(car);
-				m_RoadLines[roadline_idx][m_RoadLines[roadline_idx].size() - 1]->setPos(11 - (ROAD_WIDTH - 1) * roadline_idx, 19 - (MAP_SIZE - 1) * roadline_idx);
+				createNewCar(car, size, Right, roadline_idx, Main);
 				break;
 			case Left:
-				car = new Car(1, m_Map, Left, Turn);
-				m_RoadLines[roadline_idx].push_back(car);
-				m_RoadLines[roadline_idx][m_RoadLines[roadline_idx].size() - 1]->setPos(10 - (ROAD_WIDTH / 2 - 1) * roadline_idx, 19 - (MAP_SIZE - 1) * roadline_idx);
+				createNewCar(car, size, Left, roadline_idx, Turn);
 				break;
 			}
 		}
 	} // RANDOM CAR GENERATE
+
+	void addCar(const RoadDirection& dir) {
+		int size = 1;
+		Car* car = nullptr;
+		int roadline_idx = 1;
+		if (dir) {
+			switch (_RANDOM_GOAL_) {
+			case Forward:
+				createNewCar(car, size, Forward, roadline_idx, Main);
+				break;
+			case Right:
+				createNewCar(car, size, Forward, roadline_idx, Main);
+				break;
+			case Left:
+				createNewCar(car, size, Forward, roadline_idx, Turn);
+				break;
+			}
+		}
+	}
 
 	void moveCars() {
 		for (int roadline_idx = 0; roadline_idx < m_RoadLines.size(); ++roadline_idx) {
@@ -572,11 +585,21 @@ public:
 				}
 				else {
 					m_RoadLines[roadline_idx][car_idx]->move(m_RoadDirection, roadline_idx, m_LightsOnRoad[1].getLight());
-				}
+				}			
 
 				if (_CAR_OUT_OF_MAP_) {
 					delete m_RoadLines[roadline_idx][car_idx];
 					m_RoadLines[roadline_idx].erase(m_RoadLines[roadline_idx].begin() + car_idx);
+				}
+			}
+		}
+		for (int roadline_idx = 0; roadline_idx < m_RoadLines.size(); ++roadline_idx) {
+			for (int car_idx = 0; car_idx < m_RoadLines[roadline_idx].size(); car_idx++) {
+				if (!m_CarQueue[roadline_idx].empty()) {
+					if (!isLineFull(roadline_idx, CAR_IN_QUEUE->getType())) {
+						addCarOnTheRoad(CAR_IN_QUEUE, roadline_idx, CAR_IN_QUEUE->getType());
+						m_CarQueue[roadline_idx].pop();
+					}
 				}
 			}
 		}
@@ -588,11 +611,93 @@ public:
 private:
 	RoadDirection m_RoadDirection;
 	std::array<TrafficLight, 2> m_LightsOnRoad;				// [0] - main road; [1] - turn road
-	std::array<std::vector<Car*>, ROAD_WIDTH / 2> m_RoadLines;	// [0,1] - main roads, [2,3] - turn roads
+	std::array<std::vector<Car*>, ROAD_WIDTH / 2> m_RoadLines;	// [0] - up/right; [1] - down/left
+	std::array<std::queue<Car*>, ROAD_WIDTH / 2> m_CarQueue;
 
-	bool isLineFull(const int& lineNumber, const int& carSize) {
+	void addCarOnTheRoad(Car* car, const int& roadline_idx, const TypeOfRoadline& type) {
+		m_RoadLines[roadline_idx].push_back(car);
+		if (m_RoadDirection == Horizontal)
+			switch (roadline_idx) {
+			case 0:
+				LAST_CAR_ON_THE_ROAD(roadline_idx)->setPos(
+					0,
+					(MAP_SIZE - ROAD_WIDTH) / 2 + ROAD_WIDTH - 1 - 1 * _IS_TURN_(type)
+				);
+				break;
+			case 1:
+				LAST_CAR_ON_THE_ROAD(roadline_idx)->setPos(
+					(MAP_SIZE - 1),
+					((MAP_SIZE - ROAD_WIDTH) / 2 + (1 * _IS_TURN_(type)))
+				);
+				break;
+			}
+			
+		else
+			switch (roadline_idx) {
+			case 0:
+				LAST_CAR_ON_THE_ROAD(roadline_idx)->setPos(
+					((MAP_SIZE - ROAD_WIDTH) / 2 + ROAD_WIDTH - 1 - 1 * _IS_TURN_(type)),
+					(MAP_SIZE - 1)
+				);
+				break;
+			case 1:
+				LAST_CAR_ON_THE_ROAD(roadline_idx)->setPos(
+					((MAP_SIZE - ROAD_WIDTH) / 2 + 1 * _IS_TURN_(type)),
+					0
+				);
+				break;
+			}
+	}
 
-		return 0;
+	void addCarToQueue(Car* car, const int& roadline_idx) {
+		m_CarQueue[roadline_idx].push(car);
+	}
+
+	void createNewCar(Car* car, const int& size, const Goal& goal, const int& roadline_idx, const TypeOfRoadline& type) {
+		car = new Car(1, m_Map, goal, type);
+		if (!isLineFull(roadline_idx, type)) {
+			addCarOnTheRoad(car, roadline_idx, type);
+		}
+		else {
+			addCarToQueue(car, roadline_idx);
+		}
+	}
+
+	bool isLineFull(const int& roadline_idx, const TypeOfRoadline roadLineType) {
+		int x{ 0 };
+		int y{ 0 };
+
+		switch (m_RoadDirection) {
+		case Horizontal:
+			switch (roadline_idx) {
+			case 0:
+				x = 0;
+				y = (MAP_SIZE - ROAD_WIDTH) / 2 + ROAD_WIDTH - 1 - 1 * _IS_TURN_(roadLineType);
+				break;
+			case 1:
+				x = (MAP_SIZE - 1);
+				y = ((MAP_SIZE - ROAD_WIDTH) / 2 + (1 * _IS_TURN_(roadLineType)));
+				break;
+			}
+			break;
+		case Vertical:
+			switch (roadline_idx) {
+			case 0:
+				x = ((MAP_SIZE - ROAD_WIDTH) / 2 + ROAD_WIDTH - 1 - 1 * _IS_TURN_(roadLineType));
+				y = (MAP_SIZE - 1);
+				break;
+			case 1:
+				x = ((MAP_SIZE - ROAD_WIDTH) / 2 + 1 * _IS_TURN_(roadLineType));
+				y = 0;
+				break;
+			}
+			break;
+		}
+
+		if (m_Map->getPix(x, y) == '.')
+			return false;
+
+		return true;
 	}
 
 	Map* m_Map;
@@ -608,6 +713,13 @@ public:
 
 	void changeVerticalLight() {
 		m_Vertical_Road.switchLightOnMainRoad();
+	}
+
+	void addHorizontalCars() {
+		m_Horizontal_Road.addCar(Horizontal);
+		m_Horizontal_Road.addCar(Horizontal);
+		m_Horizontal_Road.addCar(Horizontal);
+		m_Horizontal_Road.addCar(Horizontal);
 	}
 
 	void addCar() {
@@ -657,6 +769,10 @@ public:
 		system("cls");
 		m_Map.showMap();
 	}
+
+	void createCarsHorizontal() {
+		m_RoadsSystem.addHorizontalCars();
+	}
 private:
 	Map m_Map;
 	RoadsSystem m_RoadsSystem{ &m_Map };
@@ -669,141 +785,23 @@ int main(void) {
 
 	System model;
 
-	model.refresh();
+	int FREQUENCY_OF_CAR_APPEARS_MS{ 5 };
+	int FREQUENCY_OF_CAR_MOVE_MS{ 1 };
 
-	model.newRandomCar();
-	model.move_test();
-	model.newRandomCar();
-	model.move_test();
-	model.newRandomCar();
-	model.move_test();
-	model.newRandomCar();
+	auto timer_start = std::chrono::high_resolution_clock::now();
 
+	while (1) {
+		auto timer_cur_val = std::chrono::high_resolution_clock::now();
 
-	model.refresh();
+		if (std::chrono::duration_cast<std::chrono::seconds>(timer_cur_val - timer_start).count() >= FREQUENCY_OF_CAR_MOVE_MS) {
+			timer_start = timer_cur_val;
+			std::cout << "1 sec late\n";
 
-	getchar();
+		}
 
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-	model.switchLight1();
-	model.switchLight1();
-	model.switchLight2();
-	model.switchLight2();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-	model.move_test();
-	model.refresh();
-
-	
-	getchar();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-	model.move_test();
-	model.refresh();
-
-	getchar();
-
-
+		if (std::chrono::duration_cast<std::chrono::seconds>(timer_cur_val - timer_start).count() >= FREQUENCY_OF_CAR_APPEARS_MS) {
+			
+		}
+	}
 	return 0;
 }
