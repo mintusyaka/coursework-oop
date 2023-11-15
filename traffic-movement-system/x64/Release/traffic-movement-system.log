@@ -1,0 +1,8 @@
+﻿  main.cpp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+C:\Users\Stas\Desktop\labs\3rd-course\курсач\traffic-movement-system\main.cpp(763): warning C4715: 'RoadsSystem::getLight': not all control paths return a value
+C:\Users\Stas\Desktop\labs\3rd-course\курсач\traffic-movement-system\main.cpp(837): warning C4715: 'System::getStrLight': not all control paths return a value
+  All 295 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  traffic-movement-system.vcxproj -> C:\Users\Stas\Desktop\labs\3rd-course\курсач\traffic-movement-system\x64\Release\traffic-movement-system.exe

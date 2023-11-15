@@ -68,6 +68,9 @@
 #define _RANDOM_CARSIZE_						(rand() % 10 / 5 + 1)
 #define _IS_HORIZONTAL_ROAD_					(m_RoadDirection == Horizontal)
 
+#define CUR_TIME								(std::chrono::high_resolution_clock::now())
+#define DURATION(a, b)							(std::chrono::duration_cast<std::chrono::seconds>(a - b).count())
+
 /*
 ÐÓÕ ÂÏÅÐÅÄ:
 ò³ëüêè âïåðåä:
@@ -518,6 +521,8 @@ public:
 
 	RoadDirection& getDirection() { return m_RoadDirection; }
 
+	Light getLightOnRoad(const TypeOfRoadline& roadtype) { return m_LightsOnRoad[roadtype].getLight(); }
+
 	void switchLightOnMainRoad() {
 		m_LightsOnRoad[0].switchLight();
 	}
@@ -715,6 +720,14 @@ public:
 		m_Vertical_Road.switchLightOnMainRoad();
 	}
 
+	void changeHorizontalLightTurn() {
+		m_Horizontal_Road.switchLightOnTurnRoad();
+	}
+
+	void changeVerticalLightTurn() {
+		m_Vertical_Road.switchLightOnTurnRoad();
+	}
+
 	void addHorizontalCars() {
 		m_Horizontal_Road.addCar(Horizontal);
 		m_Horizontal_Road.addCar(Horizontal);
@@ -737,6 +750,17 @@ public:
 		m_Horizontal_Road.moveCars();
 		m_Vertical_Road.moveCars();
 	}
+
+	Light getLight(const RoadDirection& direction, const TypeOfRoadline& roadtype) {
+		switch (direction) {
+		case Horizontal:
+			return m_Horizontal_Road.getLightOnRoad(roadtype);
+			break;
+		case Vertical:
+			return m_Vertical_Road.getLightOnRoad(roadtype);
+			break;
+		}
+	}
 private:
 	Map* m_Map;
 	Road m_Horizontal_Road{ Horizontal, m_Map };
@@ -749,25 +773,49 @@ public:
 		
 	}
 
-	void switchLight1() {
-		m_RoadsSystem.changeHorizontalLight();
-	}
-
-	void switchLight2() {
-		m_RoadsSystem.changeVerticalLight();
+	void switchLight(const RoadDirection& rd, const TypeOfRoadline& roadtype) {
+		switch (rd) {
+		case Horizontal:
+			switch (roadtype) {
+			case Main:
+				m_RoadsSystem.changeHorizontalLight();
+				break;
+			case Turn:
+				m_RoadsSystem.changeHorizontalLightTurn();
+				break;
+			}
+			break;
+		case Vertical:
+			switch (roadtype) {
+			case Main:
+				m_RoadsSystem.changeVerticalLight();
+				break;
+			case Turn:
+				m_RoadsSystem.changeVerticalLightTurn();
+				break;
+			}
+			break;
+		}
 	}
 
 	void newRandomCar() {
 		m_RoadsSystem.addCar();
 	}
 
-	void move_test() {
+	void move() {
 		m_RoadsSystem.moveCars();
 	}
 
 	void refresh() {
 		system("cls");
 		m_Map.showMap();
+
+		std::cout <<
+			"\n\n" <<
+			"Vertical road: " << getStrLight(m_RoadsSystem.getLight(Vertical, Main)) << "\n" <<
+			"\tturn road: " << getStrLight(m_RoadsSystem.getLight(Vertical, Turn)) << "\n" <<
+			"Horizontal road: " << getStrLight(m_RoadsSystem.getLight(Horizontal, Main)) << "\n" <<
+			"\tturn road: " << getStrLight(m_RoadsSystem.getLight(Horizontal, Turn));
 	}
 
 	void createCarsHorizontal() {
@@ -776,6 +824,17 @@ public:
 private:
 	Map m_Map;
 	RoadsSystem m_RoadsSystem{ &m_Map };
+
+	std::string getStrLight(const Light& light) {
+		switch (light) {
+		case 0:
+			return "Red";
+		case 1:
+			return "Green";
+		case 2:
+			return "Yellow";
+		}
+	}
 };
 
 
@@ -785,23 +844,54 @@ int main(void) {
 
 	System model;
 
-	int FREQUENCY_OF_CAR_APPEARS_MS{ 5 };
-	int FREQUENCY_OF_CAR_MOVE_MS{ 1 };
+	// âñå â ñåêóíäàõ
+	
+	int CAR_APPEAR_FREQUENCY{ 2 };
+	double CAR_MOVE_FREQUENCY{ 0.3 };
+	double TRAFFICLIGHTS_FREQUENCY{ 20 };
+	double YELLOW_LIGHT_DURATION{ TRAFFICLIGHTS_FREQUENCY * 2 / 10 };
+	double RED_LIGHT_DURATION{ TRAFFICLIGHTS_MAIN_FREQUENCY * 3 / 10 };
+	double GREEN_LIGHT_DURATION{ TRAFFICLIGHTS_MAIN_FREQUENCY * 5 / 10 };
+	double YELLOW_LIGHT_TURN_DURATION{ TRAFFICLIGHTS_TURN_FREQUENCY * 2 / 10 };
+	double RED_LIGHT_TURN_DURATION{ TRAFFICLIGHTS_TURN_FREQUENCY * 3 / 10 };
+	double GREEN_LIGHT_TURN_DURATION{ TRAFFICLIGHTS_TURN_FREQUENCY * 5 / 10 };
 
-	auto timer_start = std::chrono::high_resolution_clock::now();
+	int TIME_OF_MODELLING{ 120 };
 
-	while (1) {
-		auto timer_cur_val = std::chrono::high_resolution_clock::now();
+	bool isMainRoadSig{ true };
+	bool isYellow{ false };
+	RoadDirection activeRoad{ Horizontal };
 
-		if (std::chrono::duration_cast<std::chrono::seconds>(timer_cur_val - timer_start).count() >= FREQUENCY_OF_CAR_MOVE_MS) {
-			timer_start = timer_cur_val;
-			std::cout << "1 sec late\n";
+	auto TIMER_CAR_APPEAR_START{ CUR_TIME };
+	auto TIMER_CAR_MOVE_START{ CUR_TIME };
+	auto TIMER_TRAFFICLIGHTS_MAIN_START{ CUR_TIME };
+	auto TIMER_TRAFFICLIGHTS_TURN_START{ CUR_TIME };
 
+	auto TIMER_START_MODELLING{ CUR_TIME };
+
+	double REFRESH_FREQ{ 1 };
+	auto TIMER_REFRESH{ CUR_TIME };
+
+	// ÇÐÎÁÈÒÈ ÏÅÐÅÂ²ÐÊÓ ÍÀ ÊÎÆÍÈÉ ÊÎË²Ð ÑÂ²ÒËÎÔÎÐÈ ÒÀ Ì²ÍßÒÈ ÊÎÆÅÍ ÊÎË²Ð ÎÊÐÅÌÎ ÇÀËÅÆÍÎ Â²Ä ÓÌÎÂ?
+
+	while (DURATION(CUR_TIME, TIMER_START_MODELLING) <= TIME_OF_MODELLING) {
+		if (DURATION(CUR_TIME, TIMER_CAR_APPEAR_START) >= CAR_APPEAR_FREQUENCY) {
+			TIMER_CAR_APPEAR_START = CUR_TIME;
+			model.newRandomCar();
 		}
 
-		if (std::chrono::duration_cast<std::chrono::seconds>(timer_cur_val - timer_start).count() >= FREQUENCY_OF_CAR_APPEARS_MS) {
-			
+		if (DURATION(CUR_TIME, TIMER_CAR_MOVE_START) >= CAR_MOVE_FREQUENCY) {
+			TIMER_CAR_MOVE_START = CUR_TIME;
+			model.move();
+		}
+
+		
+
+		if (DURATION(CUR_TIME, TIMER_REFRESH) >= REFRESH_FREQ) {
+			model.refresh();
+			TIMER_REFRESH = CUR_TIME;
 		}
 	}
+
 	return 0;
 }

@@ -26,5 +26,8 @@
     <Text Include="..\architect\matrix-vision.txt">
       <Filter>Resource Files</Filter>
     </Text>
+    <Text Include="..\architect\timer-logic.txt">
+      <Filter>Resource Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>

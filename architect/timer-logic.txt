@@ -1,0 +1,58 @@
+start_time = CUR_TIME
+
+car_appear_frequency = 1 sec
+car_move_frequency = 1 sec
+trafficlights_main_frequency = 10 sec
+trafficlights_turn_frequency = 5 sec
+yellow_light_duration = 2 sec;
+
+bool isMainRoadSig = true;
+bool isYellow = false;
+Road activeRoad = Horizontal or Vertical;
+
+time_of_modelling = 30 sec // time how long will be modelling execute
+
+timer_car_appear_start = CUR_TIME
+timer_trafficlights_main_start = null;
+timer_trafficlights_turn_start = CUR_TIME
+timer_car_move_start = CUR_TIME
+
+while(CUR_TIME - time_start < time_of_modelling) {
+	if(CUR_TIME - timer_car_appear_start >= car_appear_frequency) {
+		timer_car_appear_start = CUR_TIME;
+		addNewCar();
+	}
+	...
+	if(isMainRoadSig) { // light on main road is green
+		if(isYellow) {
+			if(CUR_TIME - timer_trafficlights_main_start >= yellow_light_duration) {
+				changeColorOnMainRoad(road_type); will be red;
+				timer_trafficlights_turn_start = CUR_TIME;
+				isMainRoad = false;
+				activeRoad = another road;
+				isYellow = false;
+			}
+		}
+		else if(CUR_TIME - timer_trafficlights_main_start >= trafficlights_main_frequency ) {
+			timer_trafficlights_main_start = CUR_TIME;
+			changeColorOnMainRoad(road_type); // will be yellow
+			isYellow = true;
+		}
+	}
+	else {
+		if(isYellow) {
+			if(CUR_TIME - timer_trafficlights_turn_start >= yellow_light_duration) {
+				changeColorOnMainRoad(road_type); will be red;
+				timer_trafficlights_main_start = CUR_TIME;
+				isMainRoad = true;
+				activeRoad = another road;
+				isYellow = false;
+			}
+		}
+		else if(CUR_TIME - timer_trafficlights_turn_start >= trafficlights_turn_frequency) {
+			timer_trafficlights_turn_start = CUR_TIME;
+			changeColorOnMainRoad(road_type); // will be yellow
+			isYellow = true;
+		}
+	}
+}

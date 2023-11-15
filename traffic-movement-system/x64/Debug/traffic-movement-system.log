@@ -1,2 +1,4 @@
 ﻿  main.cpp
+C:\Users\Stas\Desktop\labs\3rd-course\курсач\traffic-movement-system\main.cpp(763): warning C4715: 'RoadsSystem::getLight': not all control paths return a value
+C:\Users\Stas\Desktop\labs\3rd-course\курсач\traffic-movement-system\main.cpp(837): warning C4715: 'System::getStrLight': not all control paths return a value
   traffic-movement-system.vcxproj -> C:\Users\Stas\Desktop\labs\3rd-course\курсач\traffic-movement-system\x64\Debug\traffic-movement-system.exe
